@@ -38,6 +38,10 @@ const orderbook = new Orderbook();
 console.log('Registering service event "request"...');
 
 // TODO: no race conditions are being handled in the algorithm
+// There are multiple ways we can handle that issue, like making sure that the act of adding a order
+// to the orderbook is idempotent, use locks or semaphores across the multiple nodes, using timestamps
+// for the payloads, making sure that the operations are the most atomic possible, and so on. All of that
+// would remain to be done in here.
 
 service.on("request", (rid, key, payload, handler) => {
   payload = payload.v ? JSON.parse(payload.v) : payload;
