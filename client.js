@@ -13,7 +13,7 @@ peer.init();
 
 function peerRequest(peer, key, data, opts) {
   return new Promise((resolve, reject) => {
-    peer.request(key, data, opts, (err, response) => {
+    peer.request(key, { type: "submitOrder", data }, opts, (err, response) => {
       if (err) {
         reject(err);
       } else {
@@ -34,11 +34,12 @@ async function main() {
     ];
 
     for (let order of orders) {
-      const data = await peerRequest(peer, "orderbook", order, { timeout: 10000 });
+      const data = await peerRequest(peer, "orderbook", order, {
+        timeout: 10000,
+      });
       console.log("Successfully processed order:", order);
       console.log("Received response:", data);
     }
-    
   } catch (err) {
     console.error("Error receiving response from server:", err);
   }

@@ -39,72 +39,85 @@ console.log('Registering service event "request"...');
 
 service.on("request", (rid, key, payload, handler) => {
   payload = payload.v ? JSON.parse(payload.v) : payload;
-  console.log("An order has been submitted", { rid, key, payload });
 
-  if (payload.broadcast) {
-    console.log("Receiving order as broadcast so not broadcasting again...");
-    console.log("Instead, adding order to local instance of orderbook...");
-    orderbook.addOrder(payload);
-    // not putting this handler reply here made me lose a lot of time as I was getting a timeout error when trying to broadcast from the original server
-    handler.reply(null, {});
-  } else {
-    console.log("Broadcasting order to peers...");
-    link.lookup(serverId, (err, peers) => {
-      if (err) {
-        console.error("Error looking up peers:", err);
-        return;
-      }
-
-      console.log("Found peers:", peers);
-      peers.forEach((peer) => {
-        // Don't broadcast to itself, otherwise it will broadcast to itself again and again and again...
-        const [host, port] = peer.split(":");
-        if (port === String(service.port)) {
-          console.log("Not broadcasting to self");
-          return;
-        }
-
-        console.log(`Broadcasting to peer ${peer}...`);
-        // specify target peer
-        const client = new PeerRPCClient(link, { peer: { host, port } });
-        client.init();
-        client.request(
-          serverId,
-          {
-            v: JSON.stringify({
-              ...payload,
-              // Set broadcast to true so that the target peer knows to not broadcast again
-              broadcast: true,
-            }),
-          },
-          { timeout: 5000 },
-          (err, data) => {
-            if (err) {
-              console.error("Error broadcasting order to peer:", {
-                peer,
-                err,
-              });
-            } else {
-              console.log("Successfully broadcasted order to peer", {
-                peer,
-                data,
-              });
-            }
-          }
-        );
-      });
-
-      console.log("Storing order in DHT...");
-      link.put({ v: JSON.stringify(payload) }, (err, hash) => {
+  if (payload.type === "submitOrder") {
+    console.log("An order has been submitted", { rid, key, payload });
+    if (payload.broadcast) {
+      console.log("Receiving order as broadcast so not broadcasting again...");
+      console.log("Instead, adding order to local instance of orderbook...");
+      orderbook.addOrder(payload.data);
+      // not putting this handler reply here made me lose a lot of time as I was getting a timeout error when trying to broadcast from the original server
+      handler.reply(null, {});
+    } else {
+      const shouldBroadcastOrderbook = orderbook.addOrder(payload.data);
+      console.log("Broadcasting order to peers...");
+      link.lookup(serverId, (err, peers) => {
         if (err) {
-          console.error("Error storing order:", err);
-          handler.reply(err);
+          console.error("Error looking up peers:", err);
           return;
         }
-        orderbook.addOrder(payload);
-        console.log("Order stored with hash:", hash);
-        handler.reply(null, { hash });
+
+        console.log("Found peers:", peers);
+        peers.forEach((peer) => {
+          // Don't broadcast to itself, otherwise it will broadcast to itself again and again and again...
+          const [host, port] = peer.split(":");
+          if (port === String(service.port)) {
+            console.log("Not broadcasting to self");
+            return;
+          }
+
+          console.log(`Broadcasting to peer ${peer}...`);
+          // specify target peer
+          const client = new PeerRPCClient(link, { peer: { host, port } });
+          client.init();
+          // if the orderbook has been modified, broadcast the new orderbook, otherwise only broadcast the new order
+          const dataToSend = shouldBroadcastOrderbook
+            ? {
+                type: "broadcastOrderbook",
+                data: orderbook.getOrders(),
+              }
+            : payload;
+          client.request(
+            serverId,
+            {
+              v: JSON.stringify({
+                ...dataToSend,
+                // Set broadcast to true so that the target peer knows to not broadcast again
+                broadcast: true,
+              }),
+            },
+            { timeout: 5000 },
+            (err, data) => {
+              if (err) {
+                console.error("Error broadcasting order to peer:", {
+                  peer,
+                  err,
+                });
+              } else {
+                console.log("Successfully broadcasted order to peer", {
+                  peer,
+                  data,
+                });
+              }
+            }
+          );
+        });
+
+        console.log("Storing order in DHT...");
+        link.put({ v: JSON.stringify(payload.data) }, (err, hash) => {
+          if (err) {
+            console.error("Error storing order:", err);
+            handler.reply(err);
+            return;
+          }
+          console.log("Order stored with hash:", hash);
+          handler.reply(null, { hash });
+        });
       });
-    });
+    }
+  } else if (payload.type === "broadcastOrderbook") {
+    console.log("Received orderbook broadcast", { rid, key, payload });
+    orderbook.setOrders(payload.data);
+    handler.reply(null, {});
   }
 });
