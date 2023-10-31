@@ -27,7 +27,9 @@ service.listen(port);
 
 // all servers will be announced with the same id
 const serverId = "orderbook";
-link.announce(serverId, service.port, {});
+setTimeout(() => {
+  link.announce(serverId, service.port, {});
+}, 1000);
 
 // local instances of orderbook, in theory all the servers should have the same orderbook
 // except for the intervals where the orderbook is being updated and the new data is being broadcasted
