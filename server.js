@@ -37,6 +37,8 @@ const orderbook = new Orderbook();
 
 console.log('Registering service event "request"...');
 
+// TODO: no race conditions are being handled in the algorithm
+
 service.on("request", (rid, key, payload, handler) => {
   payload = payload.v ? JSON.parse(payload.v) : payload;
 
@@ -73,6 +75,12 @@ service.on("request", (rid, key, payload, handler) => {
           // if the orderbook has been modified, broadcast the new orderbook, otherwise only broadcast the new order
           const dataToSend = shouldBroadcastOrderbook
             ? {
+                // TODO: detecting if the orderbook has been modified should be done in a better way
+                // instead of sending the whole orderbook, only send data indicating
+                // which orders have been completely fulfilled
+                // which orders have been partially fulfilled
+                // which orders have been added
+                // for the above aoperations, we would need to somehow identify the orders using IDs mechanisms
                 type: "broadcastOrderbook",
                 data: orderbook.getOrders(),
               }
