@@ -119,5 +119,7 @@ service.on("request", (rid, key, payload, handler) => {
     console.log("Received orderbook broadcast", { rid, key, payload });
     orderbook.setOrders(payload.data);
     handler.reply(null, {});
+  } else {
+    handler.reply({ err: "Unknown request type" });
   }
 });
