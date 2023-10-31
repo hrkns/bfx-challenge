@@ -1,6 +1,11 @@
+"use strict";
+
 const Grape = require("grenache-grape").Grape;
 
 const announces = new Set();
+
+// creating two grapes for emulating what's stated in the instructions
+// it's using the same settings and all...
 
 const grapesSettings = [
   {
@@ -41,6 +46,7 @@ grapesSettings.map((settings, idx) => {
   });
 
   grape.on("announce", async (announce) => {
+    // for avoiding logging the same announce over and over again
     if (announces.has(announce)) return;
     console.log(`Grape ${idx + 1} received announce "${announce}"`);
     announces.add(announce);

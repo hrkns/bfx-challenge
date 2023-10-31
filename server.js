@@ -19,17 +19,22 @@ console.log("Starting peer...");
 peer.init();
 
 console.log("Creating service...");
+// the port is randomly generated so that multiple servers can run on the same machine
 const port = 1024 + Math.floor(Math.random() * 1000);
 const service = peer.transport("server");
-console.log("Starting service on port", port, "...");
+console.log(`Service listening on port ${port}`);
 service.listen(port);
 
+// all servers will be announced with the same id
 const serverId = "orderbook";
 link.announce(serverId, service.port, {});
 
+// local instances of orderbook, in theory all the servers should have the same orderbook
+// except for the intervals where the orderbook is being updated and the new data is being broadcasted
 const orderbook = new Orderbook();
 
 console.log('Registering service event "request"...');
+
 service.on("request", (rid, key, payload, handler) => {
   payload = payload.v ? JSON.parse(payload.v) : payload;
   console.log("An order has been submitted", { rid, key, payload });
@@ -38,6 +43,7 @@ service.on("request", (rid, key, payload, handler) => {
     console.log("Receiving order as broadcast so not broadcasting again...");
     console.log("Instead, adding order to local instance of orderbook...");
     orderbook.addOrder(payload);
+    // not putting this handler reply here made me lose a lot of time as I was getting a timeout error when trying to broadcast from the original server
     handler.reply(null, {});
   } else {
     console.log("Broadcasting order to peers...");
@@ -49,16 +55,16 @@ service.on("request", (rid, key, payload, handler) => {
 
       console.log("Found peers:", peers);
       peers.forEach((peer) => {
-        // Don't broadcast to itself
-        const ip = peer.split(":")[0];
-        const port = peer.split(":")[1];
+        // Don't broadcast to itself, otherwise it will broadcast to itself again and again and again...
+        const [host, port] = peer.split(":");
         if (port === String(service.port)) {
           console.log("Not broadcasting to self");
           return;
         }
 
-        console.log('Broadcasting to peer "' + peer + '"...');
-        const client = new PeerRPCClient(link, { peer: { host: ip, port } });
+        console.log(`Broadcasting to peer ${peer}...`);
+        // specify target peer
+        const client = new PeerRPCClient(link, { peer: { host, port } });
         client.init();
         client.request(
           serverId,
@@ -74,8 +80,6 @@ service.on("request", (rid, key, payload, handler) => {
             if (err) {
               console.error("Error broadcasting order to peer:", {
                 peer,
-                ip,
-                port,
                 err,
               });
             } else {

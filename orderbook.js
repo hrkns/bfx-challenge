@@ -1,3 +1,5 @@
+"use strict";
+
 class Orderbook {
   constructor() {
     // an order has the structure of { price: X, quantity: Y }

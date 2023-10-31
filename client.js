@@ -1,41 +1,45 @@
+"use strict";
+
 const { PeerRPCClient } = require("grenache-nodejs-http");
 const Link = require("grenache-nodejs-link");
 
 const link = new Link({
-  grape: "http://127.0.0.1:40001",
+  grape: "http://127.0.0.1:30001",
 });
 link.start();
 
 const peer = new PeerRPCClient(link, {});
 peer.init();
 
-async function main() {
-  return new Promise(async (resolve, reject) => {
-    const orderType = "buy";
-    const quantity = 2;
-    const price = 10;
+function peerRequest(peer, key, data, opts) {
+  return new Promise((resolve, reject) => {
+    peer.request(key, data, opts, (err, response) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
 
-    peer.request(
+async function main() {
+  try {
+    const data = await peerRequest(
+      peer,
       "orderbook",
       {
-        orderType,
-        quantity,
-        price,
+        orderType: "buy",
+        quantity: 2,
+        price: 10,
       },
-      { timeout: 10000 },
-      (err, data) => {
-        console.log(
-          `Receiving ${err ? "error" : "success"} response from server...`,
-          err || data
-        );
-        if (err) {
-          reject(err);
-        } else {
-          resolve(data);
-        }
-      }
+      { timeout: 10000 }
     );
-  });
+
+    console.log("Successfully received response from server:", data);
+  } catch (err) {
+    console.error("Error receiving response from server:", err);
+  }
 }
 
 main().finally(() => {
