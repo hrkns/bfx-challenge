@@ -25,18 +25,20 @@ function peerRequest(peer, key, data, opts) {
 
 async function main() {
   try {
-    const data = await peerRequest(
-      peer,
-      "orderbook",
-      {
-        orderType: "buy",
-        quantity: 2,
-        price: 10,
-      },
-      { timeout: 10000 }
-    );
+    const orders = [
+      { orderType: "buy", quantity: 2, price: 10 },
+      { orderType: "sell", quantity: 1, price: 15 },
+      { orderType: "buy", quantity: 5, price: 8 },
+      { orderType: "sell", quantity: 3, price: 9 },
+      // Add more orders as needed
+    ];
 
-    console.log("Successfully received response from server:", data);
+    for (let order of orders) {
+      const data = await peerRequest(peer, "orderbook", order, { timeout: 10000 });
+      console.log("Successfully processed order:", order);
+      console.log("Received response:", data);
+    }
+    
   } catch (err) {
     console.error("Error receiving response from server:", err);
   }
